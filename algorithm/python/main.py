@@ -1,5 +1,6 @@
 import stack
 import queue
+import heap
 import os
 
 def main():
