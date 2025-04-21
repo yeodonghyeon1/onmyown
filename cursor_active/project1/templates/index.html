@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테트리스 게임</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .game-board {
+            border: 2px solid #333;
+            background-color: #000;
+            padding: 10px;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 30px);
+            grid-template-rows: repeat(20, 30px);
+            gap: 1px;
+            background-color: #111;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #333;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .next-piece, .held-piece {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #333;
+            background-color: #000;
+            padding: 10px;
+        }
+
+        .stats {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .color-0 { background-color: #000; }  /* 빈 셀 */
+        .color-1 { background-color: #00f; }  /* I */
+        .color-2 { background-color: #f00; }  /* O */
+        .color-3 { background-color: #0f0; }  /* T */
+        .color-4 { background-color: #ff0; }  /* S */
+        .color-5 { background-color: #f0f; }  /* Z */
+        .color-6 { background-color: #0ff; }  /* J */
+        .color-7 { background-color: #f80; }  /* L */
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-board">
+            <div class="game-grid" id="gameGrid"></div>
+        </div>
+        <div class="side-panel">
+            <div class="next-piece">
+                <h3>다음 조각</h3>
+                <div id="nextPiece"></div>
+            </div>
+            <div class="held-piece">
+                <h3>보관된 조각</h3>
+                <div id="heldPiece"></div>
+            </div>
+            <div class="stats">
+                <h3>게임 정보</h3>
+                <p>점수: <span id="score">0</span></p>
+                <p>레벨: <span id="level">1</span></p>
+                <p>제거한 줄: <span id="lines">0</span></p>
+            </div>
+            <div class="controls">
+                <h3>조작 방법</h3>
+                <p>← → : 좌우 이동</p>
+                <p>↓ : 아래로 이동</p>
+                <p>↑ : 회전</p>
+                <p>스페이스바 : 하드 드롭</p>
+                <p>C : 조각 보관</p>
+                <button id="startBtn">시작</button>
+                <button id="pauseBtn">일시정지</button>
+                <button id="resetBtn">재시작</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = null;
+        let gameInterval = null;
+        let isPaused = false;
+
+        // 게임 보드 초기화
+        function initializeBoard() {
+            const gameGrid = document.getElementById('gameGrid');
+            gameGrid.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 10; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell color-0';
+                    cell.id = `cell-${i}-${j}`;
+                    gameGrid.appendChild(cell);
+                }
+            }
+        }
+
+        // 게임 상태 업데이트
+        async function updateGameState(action) {
+            try {
+                const response = await fetch('/api/game/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action })
+                });
+                gameState = await response.json();
+                renderGame();
+            } catch (error) {
+                console.error('게임 상태 업데이트 실패:', error);
+            }
+        }
+
+        // 게임 렌더링
+        function renderGame() {
+            if (!gameState) return;
+
+            // 게임 보드 업데이트
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 10; j++) {
+                    const cell = document.getElementById(`cell-${i}-${j}`);
+                    cell.className = `cell color-${gameState.grid[i][j]}`;
+                }
+            }
+
+            // 점수 및 통계 업데이트
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('level').textContent = gameState.level;
+            document.getElementById('lines').textContent = gameState.lines_cleared;
+
+            // 게임 오버 체크
+            if (gameState.game_over) {
+                clearInterval(gameInterval);
+                alert('게임 오버!');
+            }
+        }
+
+        // 키보드 이벤트 처리
+        document.addEventListener('keydown', async (event) => {
+            if (isPaused) return;
+
+            switch (event.code) {
+                case 'ArrowLeft':
+                    await updateGameState('move_left');
+                    break;
+                case 'ArrowRight':
+                    await updateGameState('move_right');
+                    break;
+                case 'ArrowDown':
+                    await updateGameState('move_down');
+                    break;
+                case 'ArrowUp':
+                    await updateGameState('rotate');
+                    break;
+                case 'Space':
+                    event.preventDefault();
+                    await updateGameState('hard_drop');
+                    break;
+                case 'KeyC':
+                    await updateGameState('hold');
+                    break;
+            }
+        });
+
+        // 버튼 이벤트 처리
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (!gameInterval) {
+                gameInterval = setInterval(() => updateGameState('move_down'), 1000);
+                isPaused = false;
+            }
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', async () => {
+            if (gameInterval) {
+                clearInterval(gameInterval);
+                gameInterval = null;
+                isPaused = true;
+                await updateGameState('pause');
+            } else {
+                gameInterval = setInterval(() => updateGameState('move_down'), 1000);
+                isPaused = false;
+                await updateGameState('pause');
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', async () => {
+            clearInterval(gameInterval);
+            gameInterval = null;
+            isPaused = false;
+            await updateGameState('reset');
+            gameInterval = setInterval(() => updateGameState('move_down'), 1000);
+        });
+
+        // 게임 초기화
+        async function initializeGame() {
+            initializeBoard();
+            const response = await fetch('/api/game/state');
+            gameState = await response.json();
+            renderGame();
+        }
+
+        // 게임 시작
+        initializeGame();
+    </script>
+</body>
+</html> 

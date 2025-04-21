@@ -25,7 +25,6 @@ Heapify() : 일반적인 이진 트리를 Heap으로 변경
 class Maxheap:
     def __init__(self):
         self.heap_list = []
-        self.max = 0
         self.last_header = 0
         pass
 
@@ -88,7 +87,6 @@ class Maxheap:
                         current_header = right_node_header
                     else:
                         break
-            self.last_header = len(self.heap_list) - 1                    
     
     def get_max(self):
         self.__print__(self.heap_list[0])
@@ -100,7 +98,7 @@ class Maxheap:
         while True:
             end_level = start_level * 2 + 1
             if start_level <= point and point < end_level:
-                self.__print__(min(self.heap_list[start_level:point+1]))
+                self.__print__(min(self.heap_list[start_level:end_level]))
                 break
             start_level = start_level * 2 + 1
 
