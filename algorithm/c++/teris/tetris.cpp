@@ -6,6 +6,7 @@
 #include <memory>
 #include <conio.h>
 #include <algorithm>
+#include <atomic>
 using namespace std;
 #define UP 72
 #define DOWN 80
@@ -36,7 +37,7 @@ class tetris{
         bool successfully_bind_block = true;
         std::shared_ptr<Block> current_block;
         vector<vector<int>> map;
-
+        bool game_state = true;
         struct block_window{
             int insert_window_front;
             int insert_window_back;
@@ -77,26 +78,30 @@ class tetris{
                     insert_block(map);
                     block_number++;
 
-                    if(block_number == 2){
+                    if(block_number == 7){
                         block_number = 0;
                     }       
                 }             
                 show_map(map);
                 system("cls");
+                if(!game_state) break;
             }
-            system("pause"); 
         }
 
         ~tetris(){
             if(t1.joinable()) t1.join();
+            if(t2.joinable()) t2.join();
+
         }
 
 
     private:
+        
         int x, y;
         std::thread t1;
         std::thread t2;
         std::mutex mtx;
+        std::atomic_bool running = true;
         int check_bind_block = 0;
         bool bind_block = false;
 
@@ -136,42 +141,7 @@ class tetris{
                 }
                 line_clear--;
             }
-            // if(line_clear != 0){
-            //     for(int i = y -2; i > 1; --i){
-            //         do{
-            //             for(int j = x -2; j > 0; --j){
-            //                 if(map[i][j] == 0){
-            //                     line_clear_count++;
-            //                 }
-            //             }
-            //             if(line_clear_count ==(x-2)){
-            //                 for(int n = x-2; n>0; --n){
-            //                     map[i][n] = map[i-1][n];
-            //                     map[i-1][n] = 0;
-            //                     line_clear--;
-            //                 }
-            //             }
 
-            //         }while(line_clear_count == (x-2) && line_clear != 0);
-
-            //         // while(line_clear_count == (x -2) && line_clear != 0){
-            //         //     for(int n = x -2; n > 0; --n){
-            //         //         map[i][n] = map[i-1][n];
-            //         //         map[i-1][n] = 0;
-            //         //         line_clear--;
-            //         //     }
-            //         // }
-            //         line_clear_count = 0;
-            //     }
-            // }
-
-            // for(int i = y -2; i>1; --i){
-            //     for(int j = x -2; j>1; --j){
-            //         if(line_clear){
-            //             map[i][j] = map[i-1][j];
-            //         }
-            //     }
-            // }
             if(line_clear == true){
                 line_clear = false;
             }
@@ -186,7 +156,7 @@ class tetris{
             char c;
             bool can_move = false;
             int lotation_number = 0;
-            while(true) {
+            while(running) {
                 if (_kbhit()) {        //키보드 입력 확인 (true / false)
                     c = _getch();      // 방향키 입력시 224 00이 들어오게 되기에 앞에 있는 값 224를 없앰
                     if (c == -32) {    // -32로 입력되면
@@ -347,12 +317,10 @@ class tetris{
                 return true;
             else
                 return false;
-            
-
         }
 
         void down_block_and_bind(){
-            while(true){
+            while(running){
                 mtx.lock();
 
 
@@ -426,6 +394,26 @@ class tetris{
                     auto b = std::make_shared<O_Mino>();
                     return b;
                 }
+                case 2: {
+                    auto b = std::make_shared<T_Mino>();
+                    return b;
+                }
+                case 3: {
+                    auto b = std::make_shared<L_Mino>();
+                    return b;
+                }
+                case 4: {
+                    auto b = std::make_shared<J_Mino>();
+                    return b;
+                }
+                case 5: {
+                    auto b = std::make_shared<S_Mino>();
+                    return b;
+                }
+                case 6: {
+                    auto b = std::make_shared<Z_Mino>();
+                    return b;
+                }
                 default:
                     return nullptr;
             }
@@ -445,14 +433,24 @@ class tetris{
             for(int i = bw->insert_window_up; i < bw->insert_window_down; ++i){
                 block_x = 0;
                 for(int j = bw->insert_window_front; j < bw->insert_window_back; ++j){
+                    if(block[3][block_y][block_x] == 1){
+                        if(map[i][j] == 2){
+                            game_over();
+                        }
+                    }
                     map[i][j] = block[3][block_y][block_x];
                     block_x++;
+
                 }   
                 block_y++;
             }
             successfully_bind_block = false;
         }
 
+        void game_over(){
+            game_state = false;
+            running = false;
+        }
 
         vector<vector<int>> gridmap(){
             vector<vector<int>> v2(y, vector<int>(x, -1));
@@ -496,4 +494,6 @@ class tetris{
 int main(){
     tetris te;
     te.run();
+    system("pause"); 
+
 }
